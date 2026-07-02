@@ -3,6 +3,27 @@ import { createReader } from '@keystatic/core/reader';
 import { createGitHubReader } from '@keystatic/core/reader/github';
 
 /**
+ * Cloudflare's worker runtime does not implement the `cache` field on
+ * Request init. The Keystatic GitHub reader (via urql) sets `cache: 'no-store'`,
+ * which throws: "The 'cache' field on 'RequestInitializerDict' is not implemented."
+ * This patch strips the `cache` field from fetch options before they reach the
+ * runtime. Applied once per request (CF isolates each request).
+ */
+let fetchPatched = false;
+function patchFetchForCloudflare() {
+  if (fetchPatched) return;
+  fetchPatched = true;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    if (init && 'cache' in init) {
+      const { cache: _cache, ...rest } = init;
+      return originalFetch(input, rest as RequestInit);
+    }
+    return originalFetch(input, init);
+  };
+}
+
+/**
  * Local reader used during build / SSG (Test 4).
  * Reads from the filesystem at process.cwd().
  */
@@ -22,6 +43,8 @@ export interface GitHubReaderEnv {
  * from `process.env` via the `.env` file. Callers merge both and pass here.
  */
 export function getGitHubReader(env: GitHubReaderEnv = {}) {
+  patchFetchForCloudflare();
+
   const owner = env.GITHUB_REPO_OWNER ?? process.env.GITHUB_REPO_OWNER;
   const name = env.GITHUB_REPO_NAME ?? process.env.GITHUB_REPO_NAME;
   const token = env.GITHUB_CONTENT_READ_TOKEN ?? process.env.GITHUB_CONTENT_READ_TOKEN;
