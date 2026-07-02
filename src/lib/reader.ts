@@ -15,11 +15,14 @@ function patchFetchForCloudflare() {
   fetchPatched = true;
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    if (init && 'cache' in init) {
-      const { cache: _cache, ...rest } = init;
-      return originalFetch(input, rest as RequestInit);
+    // Strip `cache` — not implemented on the CF runtime.
+    const { cache: _cache, ...rest } = init ?? {};
+    // GitHub API requires a User-Agent header; CF fetch doesn't set one by default.
+    const headers = new Headers(rest.headers);
+    if (!headers.has('user-agent')) {
+      headers.set('user-agent', 'astro-keystatic-reader');
     }
-    return originalFetch(input, init);
+    return originalFetch(input, { ...rest, headers });
   };
 }
 
