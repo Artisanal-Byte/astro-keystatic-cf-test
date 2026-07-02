@@ -42,15 +42,34 @@ export interface GitHubReaderEnv {
 
 /**
  * GitHub reader used at runtime in SSR (Test 2).
- * On Cloudflare, env comes from `Astro.locals.runtime.env`; locally it comes
- * from `process.env` via the `.env` file. Callers merge both and pass here.
+ * Tries `cloudflare:workers` (production worker runtime) first, then `process.env`
+ * (dev server / build time). The explicit `env` param overrides both.
  */
-export function getGitHubReader(env: GitHubReaderEnv = {}) {
+export async function getGitHubReader(env: GitHubReaderEnv = {}) {
   patchFetchForCloudflare();
 
-  const owner = env.GITHUB_REPO_OWNER ?? process.env.GITHUB_REPO_OWNER;
-  const name = env.GITHUB_REPO_NAME ?? process.env.GITHUB_REPO_NAME;
-  const token = env.GITHUB_CONTENT_READ_TOKEN ?? process.env.GITHUB_CONTENT_READ_TOKEN;
+  let cfEnv: Record<string, unknown> = {};
+  try {
+    const { env: cloudflareEnv } = await import('cloudflare:workers');
+    cfEnv = cloudflareEnv as Record<string, unknown>;
+  } catch {
+    // Not running inside a Cloudflare worker (e.g. dev server, build).
+  }
+
+  const owner =
+    env.GITHUB_REPO_OWNER ??
+    (cfEnv.GITHUB_REPO_OWNER as string | undefined) ??
+    process.env.GITHUB_REPO_OWNER;
+
+  const name =
+    env.GITHUB_REPO_NAME ??
+    (cfEnv.GITHUB_REPO_NAME as string | undefined) ??
+    process.env.GITHUB_REPO_NAME;
+
+  const token =
+    env.GITHUB_CONTENT_READ_TOKEN ??
+    (cfEnv.GITHUB_CONTENT_READ_TOKEN as string | undefined) ??
+    process.env.GITHUB_CONTENT_READ_TOKEN;
 
   if (!owner || !name || !token) {
     throw new Error(

@@ -2,15 +2,15 @@
 
 > **Purpose**: Prove core architectural assumptions before building the monorepo template.  
 > **Scope**: Minimal. No design, no UX. Just functional verification.  
-> **Outcome**: Confirmed deployment target, confirmed Keystatic Reader compatibility, known constraints.
+> **Outcome**: Confirmed deployment target, confirmed Keystatic Reader compatibility, known constraints. Results are recorded in `findings.md`.
 
 ---
 
 ## Test Cases
 
-### Test 1: Astro SSR + Vue on Cloudflare Pages vs Workers
+### Test 1: Astro SSR + Vue on Cloudflare Pages
 
-**Question**: Does `@astrojs/cloudflare` adapter work with CF Pages, or must we use Workers?
+**Question**: Does `@astrojs/cloudflare` adapter work with CF Pages for this template's SSR/SSG mix?
 
 **Setup**:
 - Minimal Astro project with `@astrojs/cloudflare` adapter
@@ -30,15 +30,13 @@
 | Deploy to CF Pages | `wrangler pages deploy dist` or Git-based deploy |
 | Runtime works | Production URL serves all pages correctly |
 
-**If CF Pages fails**:
-- Try deploying as a Worker (`wrangler deploy`)
-- Document which target works → that becomes our architecture
+Historical fallback if CF Pages failed: try deploying as a Worker (`wrangler deploy`). `findings.md` confirmed this fallback is not needed.
 
 ---
 
 ### Test 2: Keystatic GitHub Reader in Cloudflare Runtime
 
-**Question**: Does `createGitHubReader` work inside a CF Pages Function / Worker?
+**Question**: Does `createGitHubReader` work inside the Cloudflare Pages adapter runtime (`dist/_worker.js`)?
 
 **Setup**:
 - Minimal Keystatic config with one collection (e.g., `posts`)
@@ -62,13 +60,13 @@
 
 ---
 
-### Test 3: Pages Functions with D1 Binding
+### Test 3: Astro API Routes with D1 Binding
 
-**Question**: Can a static Astro site have Pages Functions that access D1?
+**Question**: Can a static Astro site have route-level runtime APIs that access D1 through the Cloudflare adapter runtime?
 
 **Setup**:
 - Static Astro site
-- `functions/api/submissions.ts` — Pages Function that reads from D1
+- `src/pages/api/submissions.ts` — Astro API route with `export const prerender = false`
 - D1 database with one test table
 - Deploy to CF Pages with D1 binding
 
@@ -76,9 +74,9 @@
 
 | Check | How |
 |-------|-----|
-| D1 binding works | Function can query D1 and return JSON |
-| Static site unaffected | Main site serves as SSG, Functions as separate runtime |
-| Local dev works | `wrangler pages dev` with `--d1` flag |
+| D1 binding works | Astro API route can query D1 and return JSON |
+| Static site unaffected | Main site serves as SSG, API route runs through `_worker.js` |
+| Local dev works | `astro dev` with `platformProxy: { enabled: true }` |
 
 ---
 
@@ -109,7 +107,7 @@ test-project/
 ├── astro.config.mjs          # Adapter config, SSR/SSG toggle
 ├── package.json              # Dependencies
 ├── tsconfig.json
-├── wrangler.jsonc            # CF Pages/Worker config
+├── wrangler.jsonc            # CF Pages config
 │
 ├── content/                  # Local content for SSG test (Test 4)
 │   └── posts/
@@ -127,15 +125,15 @@ test-project/
 │   │   ├── github-posts.astro # SSR: reads from GitHub (Test 2)
 │   │   ├── local-posts.astro  # SSG: reads from local content (Test 4)
 │   │   └── api/
-│   │       └── hello.ts      # API route (Test 1)
+│   │       ├── hello.ts       # API route (Test 1)
+│   │       └── submissions.ts # API route with D1 (Test 3)
 │   │
 │   └── lib/
 │       └── reader.ts         # Shared reader config (Test 2 & 4)
 │
-└── functions/
-    └── api/
-        └── submissions.ts    # Pages Function with D1 (Test 3)
 ```
+
+Do not use a `/functions` directory in this architecture. The Astro Cloudflare adapter emits `dist/_worker.js/`, and Cloudflare Pages ignores `/functions` when `_worker.js` exists.
 
 ## Dependencies
 
@@ -160,7 +158,7 @@ PUBLIC_ENV=preview                           # or production
 GITHUB_REPO_OWNER=your-org
 GITHUB_REPO_NAME=test-content-repo
 GITHUB_CONTENT_READ_TOKEN=github_pat_xxxx    # fine-grained, contents:read
-D1_DATABASE_ID=xxxx-xxxx-xxxx
+D1_DATABASE_ID=xxxx-xxxx-xxxx       # deployment metadata only
 D1_DATABASE_NAME=test-db
 ```
 
@@ -170,15 +168,15 @@ D1_DATABASE_NAME=test-db
 |--------|---------|-----|
 | CF Pages (Git) | Push to branch, auto-deploy | Tests 1-4 |
 | CF Pages (Direct) | `wrangler pages deploy dist` | Test 1 (static mode) |
-| CF Worker | `wrangler deploy` | Test 1 (SSR mode, if Pages fails) |
+| CF Worker | `wrangler deploy` | Historical fallback only; not needed after findings confirmed CF Pages |
 
 ## Success Criteria
 
 | Test | Success | Notes |
 |------|---------|-------|
-| 1 | CF Pages SSR works OR we confirm Workers is needed | Decision recorded, architecture updated |
+| 1 | CF Pages SSR works | Decision recorded, architecture updated |
 | 2 | `createGitHubReader` works in runtime OR fallback identified | If fail: note which Node APIs are missing |
-| 3 | Pages Function + D1 binding works | Confirms dashboard API architecture |
+| 3 | Astro API route + D1 binding works | Confirms dashboard API architecture |
 | 4 | SSG build reads local content | Confirms production build works |
 
 ## Expected Duration
@@ -192,8 +190,8 @@ D1_DATABASE_NAME=test-db
 1. **Record results** in this document (pass/fail + notes)
 2. **Update `plan.md`** with confirmed deployment target
 3. **Update `deployment-reference.md`** with correct deploy steps
-4. **If Workers needed**: Change "4 Pages projects" to "2 Pages + 2 Workers" and update domain/binding docs
-5. **If Reader fails**: Implement chosen fallback in the monorepo template
+4. **Include Reader patch**: Add the fetch patch from `findings.md` to the monorepo template
+5. **Document runtime rules**: Capture `Astro.locals.runtime.env`, `platformProxy`, and no `/functions` directory
 6. **Begin Phase 0** (rule system creation) with confirmed architecture
 
 > Findings have moved to `findings.md`. That file is the living record of all build-time and runtime discoveries.

@@ -7,11 +7,12 @@ export default defineConfig({
   output: 'static',
   adapter: cloudflare({
     platformProxy: { enabled: true },
+    prerenderEnvironment: 'node',
   }),
   integrations: [vue(), keystatic()],
   vite: {
     // Keystatic + Cloudflare benefit from nodejs_compat-style polyfills.
     // The adapter sets this in wrangler.jsonc; here we only ensure ESM externals.
-    optimizeDeps: { exclude: ['@keystatic/core'] },
+    optimizeDeps: { exclude: ['@keystatic/core', '@keystatic/astro'] },
   },
 });

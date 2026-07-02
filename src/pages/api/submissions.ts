@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { env as cfEnv } from 'cloudflare:workers';
 
 // Test 3 — D1 access via the Astro Cloudflare adapter.
 //
@@ -20,13 +21,11 @@ interface Env {
   DB: D1Database;
 }
 
-function getDB(locals: unknown): D1Database {
-  const env = ((locals as { runtime?: { env?: Env } })?.runtime?.env) ?? {};
+function getDB(): D1Database {
+  const env = (cfEnv as unknown) as Env;
   if (!env.DB) {
     throw new Error(
-      'D1 binding `DB` not found on Astro.locals.runtime.env. ' +
-        'Ensure wrangler.jsonc has a d1_databases binding named `DB` and that ' +
-        'platformProxy is enabled in astro.config.mjs for local dev.'
+      'D1 binding `DB` not found on cloudflare env. Ensure wrangler.jsonc has a d1_databases binding named `DB`.'
     );
   }
   return env.DB;
@@ -41,8 +40,8 @@ function json(data: unknown, status = 200): Response {
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ locals }) => {
-  const db = getDB(locals);
+export const GET: APIRoute = async () => {
+  const db = getDB();
   const { results, success, error } = await db
     .prepare('SELECT id, name, message, created_at FROM submissions ORDER BY id DESC LIMIT 100;')
     .all();
@@ -50,8 +49,8 @@ export const GET: APIRoute = async ({ locals }) => {
   return json({ submissions: results });
 };
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  const db = getDB(locals);
+export const POST: APIRoute = async ({ request }) => {
+  const db = getDB();
 
   let body: { name?: string; message?: string };
   try {
