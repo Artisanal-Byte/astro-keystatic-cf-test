@@ -180,5 +180,8 @@ All four tests pass with the Astro 6 / @astrojs/cloudflare v13 setup, after appl
 | API hello | `/api/hello` | ✅ 200 | JSON with live timestamp |
 
 **Deploy config fixes applied:**
-1. Created SESSION KV namespace (`wrangler kv namespace create SESSION`) → added `id` to `wrangler.jsonc` `kv_namespaces` block
-2. Added `fix-wrangler.js` post-build script (`astro build && node fix-wrangler.js`) to delete `assets` block from generated `dist/server/wrangler.json` (ASSETS binding is reserved by Pages)
+1. Created SESSION KV namespace (`wrangler kv namespace create SESSION` → id `56efbe96d66b4f35b30ca0a1176d6279`) — added `kv_namespaces` with real `id` to `wrangler.jsonc`.
+2. Added `fix-wrangler.js` post-build script (`astro build && node fix-wrangler.js`) that:
+   - **Strips Workers-only fields** (`main`, `rules`, `images`, `assets`, etc.) from generated `dist/server/wrangler.json` and `dist/server/.prerender/wrangler.json` — these fields are rejected by Pages CI validation.
+   - **Restructures `dist/` layout** to match Pages expectations: moves `dist/client/*` to `dist/` root, creates `dist/_worker.js/index.js` wrapping `server/entry.mjs`. This replicates the Astro 5 / adapter v12 output that Pages auto-detects.
+3. Uses `prerenderEnvironment: 'node'` in adapter config (builds pass in this mode; `workerd` mode fails at build time with ASSETS error in `.prerender/wrangler.json`).
