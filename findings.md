@@ -155,3 +155,30 @@ Findings from deploying to Cloudflare Pages and testing on the production URL. A
 4. **Fetch compatibility**: The `globalThis.fetch` patch in `src/lib/reader.ts` is required for the GitHub reader to work on CF production. Must be included in the template.
 5. **Env access**: `Astro.locals.runtime.env` for all server-side secrets/bindings, not `import.meta.env`. `platformProxy: { enabled: true }` for local dev parity.
 6. **Keystatic admin UI**: Broken in `astro dev`. Needs investigation before the template ships if local authoring is a requirement. Production admin requires `storage: { kind: 'github' }` with a write-capable PAT.
+
+### Updated architecture for Astro 6
+
+| Aspect | Astro 5 | Astro 6 |
+|--------|---------|---------|
+| D1/env access | `Astro.locals.runtime.env` | `import { env } from 'cloudflare:workers'` |
+| Feture flags | None | `prerenderEnvironment: 'node'` in adapter config |
+| KV namespace | Optional | Required (auto-added by adapter for sessions) |
+| Deploy config | `wrangler.jsonc` + adapter generates valid config | Adapter generates `assets.binding: "ASSETS"` (reserved in Pages) + `kv_namespaces` without `id`; must post-process |
+
+### Astro 6 Production Test Results
+
+All four tests pass with the Astro 6 / @astrojs/cloudflare v13 setup, after applying two deploy config fixes:
+
+| Test | Route | Status | Notes |
+|------|-------|--------|-------|
+| **1** SSR + Vue | `/ssr` | ✅ 200 | Timestamp changes on refresh, Vue Counter hydrates |
+| **2** GitHub Reader | `/github-posts` | ✅ 200 | Content renders with Markdoc formatting, fetch patch works |
+| **3** D1 | `/api/submissions` POST | ✅ 201 | `{"ok":true}`, row persisted |
+| **3** D1 | `/api/submissions` GET | ✅ 200 | `{"submissions":[...]}`, includes new row |
+| **4** SSG Local Reader | `/local-posts/` | ✅ 200 | All 4 Markdoc features rendered (heading, bold, inline-code, lists) |
+| Homepage | `/` | ✅ 200 | Static HTML served |
+| API hello | `/api/hello` | ✅ 200 | JSON with live timestamp |
+
+**Deploy config fixes applied:**
+1. Created SESSION KV namespace (`wrangler kv namespace create SESSION`) → added `id` to `wrangler.jsonc` `kv_namespaces` block
+2. Added `fix-wrangler.js` post-build script (`astro build && node fix-wrangler.js`) to delete `assets` block from generated `dist/server/wrangler.json` (ASSETS binding is reserved by Pages)
