@@ -4,6 +4,26 @@ Final log of findings from the Astro + Cloudflare + Keystatic test project. Both
 
 ---
 
+## Astro 6 Upgrade Findings
+
+Findings from upgrading @astrojs/cloudflare from v12 (Astro 5) to v13 (Astro 6).
+
+### Breaking changes from the adapter upgrade
+
+- **`Astro.locals.runtime.env` removed in v13.** Must use `import { env } from 'cloudflare:workers'` instead. This affects D1 access (Test 3) and env var access (Test 2).
+- **`platformProxy: { enabled: true }` still works for local dev** — it wires bindings via Miniflare. But at runtime on CF, the `cloudflare:workers` import provides the actual Cloudflare bindings.
+- **`prerenderEnvironment: 'workerd'` (default) causes build-time ASSETS binding conflict.** Must set `prerenderEnvironment: 'node'` in the adapter config to avoid "The name 'ASSETS' is reserved" error during build. (Note: this fixed the *build* but the *deploy-time* validation still rejected the generated `dist/server/wrangler.json` — see deploy config fixes below.)
+
+### Deploy config fixes (generated `dist/server/wrangler.json`)
+
+Two errors in the adapter-generated `dist/server/wrangler.json` blocked Pages deployment:
+
+1. **`kv_namespaces[0]` missing `id` field.** The adapter auto-adds `{ binding: "SESSION" }` for Astro sessions, but Pages deploy validation requires a KV namespace ID. Fix: create the namespace via `wrangler kv namespace create SESSION`, add `kv_namespaces` with the real `id` to `wrangler.jsonc`.
+
+2. **`assets: { binding: "ASSETS" }` is reserved in Pages projects.** The adapter hardcodes `DEFAULT_ASSETS_BINDING_NAME = "ASSETS"` with no option to rename it. In Pages, `ASSETS` is reserved by the platform. Fix: add a `fix-wrangler.js` post-build script that deletes the `assets` block from `dist/server/wrangler.json`. Pages provides `env.ASSETS` natively — the worker runtime code (`matchStaticAsset`, `fallbackToAssets` in `cf-helpers.js`) that accesses `env.ASSETS` still works because the binding is auto-injected by Pages.
+
+---
+
 ## Test Build Findings
 
 Findings discovered while scaffolding the test project and getting `bun run build` to pass. These are build-time / wiring facts, not runtime test results.
