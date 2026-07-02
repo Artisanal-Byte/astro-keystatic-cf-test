@@ -7,6 +7,12 @@
   "compatibility_date": "2024-11-01",
   "compatibility_flags": ["nodejs_compat"],
   "pages_build_output_dir": "dist",
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "56efbe96d66b4f35b30ca0a1176d6279"
+    }
+  ],
   "d1_databases": [
     {
       "binding": "DB",
