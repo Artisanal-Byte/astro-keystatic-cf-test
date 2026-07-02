@@ -1,0 +1,22 @@
+---
+// Test 1 — SSR page (dynamic) with Vue hydration
+import Counter from '../components/Counter.vue';
+
+export const prerender = false;
+
+const generatedAt = new Date().toISOString();
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>SSR + Vue Counter</title>
+  </head>
+  <body>
+    <h1>SSR page</h1>
+    <p>Rendered at: <code>{generatedAt}</code></p>
+    <p>Reload the page — the timestamp should change.</p>
+    <hr />
+    <Counter client:load />
+  </body>
+</html>

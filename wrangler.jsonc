@@ -1,0 +1,21 @@
+{
+  // Cloudflare Pages config for the test project.
+  // - The Astro Cloudflare adapter outputs SSR assets to dist/ and a _worker.js.
+  // - /functions is used by Pages Functions for the D1-backed API (Test 3).
+  // - nodejs_compat is required by @keystatic/core (urql, etc.) inside the worker runtime.
+  "name": "astro-keystatic-test",
+  "compatibility_date": "2024-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "pages_build_output_dir": "dist",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "test-db",
+      "database_id": "72b72299-8bbd-4d61-acc8-bb6774b6e42c",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "PUBLIC_ENV": "preview"
+  }
+}

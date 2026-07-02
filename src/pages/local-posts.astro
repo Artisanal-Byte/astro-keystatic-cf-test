@@ -1,0 +1,34 @@
+---
+// Test 4 — SSG page reading local content via Keystatic local reader
+import Markdoc from '@markdoc/markdoc';
+import { getLocalReader } from '../lib/reader';
+
+const reader = getLocalReader();
+const slugs = await reader.collections.posts.list();
+const posts = [];
+
+for (const slug of slugs) {
+  const entry = await reader.collections.posts.read(slug);
+  if (!entry) continue;
+  const { node } = await entry.content();
+  const html = Markdoc.renderers.html(Markdoc.transform(node));
+  posts.push({ slug, title: entry.title, html });
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Local Posts (SSG)</title>
+  </head>
+  <body>
+    <h1>Local Posts (SSG, build-time reader)</h1>
+    <p>Found {posts.length} post(s).</p>
+    {posts.map((post) => (
+      <article>
+        <h2>{post.title}</h2>
+        <div set:html={post.html} />
+      </article>
+    ))}
+  </body>
+</html>

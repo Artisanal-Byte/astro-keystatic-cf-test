@@ -1,0 +1,23 @@
+# build output
+dist/
+.astro/
+
+# deps
+node_modules/
+
+# env
+.env
+.env.local
+.env.production
+.dev.vars
+.dev.vars.*
+
+# cloudflare
+.wrangler/
+.mf/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

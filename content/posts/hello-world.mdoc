@@ -1,0 +1,21 @@
+---
+title: Hello World
+summary: A first test post rendered via the Keystatic local reader at build time.
+---
+
+# Hello World
+
+This is a **test post** authored as Markdoc and rendered to HTML during the
+Astro SSG build using `createReader` from `@keystatic/core/reader`.
+
+## Why this exists
+
+This file verifies Test 4 of the test plan:
+
+- `createReader(process.cwd(), config)` finds content in `content/posts/`
+- `reader.collections.posts.list()` returns slugs
+- `reader.collections.posts.read(slug)` returns parsed entry data
+- `Markdoc.render(entry.content.node)` produces renderable output
+- `Markdoc.renderers.html(...)` produces the final HTML
+
+If you can read this paragraph on `/local-posts`, the SSG path works.

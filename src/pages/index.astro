@@ -1,0 +1,22 @@
+---
+// Test 1 — static page (prerendered by default)
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Astro Keystatic Test — Index</title>
+  </head>
+  <body>
+    <h1>Hello world (static)</h1>
+    <nav>
+      <ul>
+        <li><a href="/ssr">SSR page + Vue Counter</a></li>
+        <li><a href="/local-posts">Local content (SSG)</a></li>
+        <li><a href="/github-posts">GitHub content (SSR)</a></li>
+        <li><a href="/api/hello">/api/hello (SSR route)</a></li>
+        <li><a href="/api/submissions">/api/submissions (Pages Function + D1)</a></li>
+      </ul>
+    </nav>
+  </body>
+</html>

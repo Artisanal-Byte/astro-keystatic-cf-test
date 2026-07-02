@@ -1,0 +1,48 @@
+---
+// Test 2 — SSR page reading content from GitHub via Keystatic GitHub reader
+import Markdoc from '@markdoc/markdoc';
+import { getGitHubReader } from '../lib/reader';
+
+export const prerender = false;
+
+// Cloudflare exposes bindings via Astro.locals.runtime.env; locally via process.env.
+const runtimeEnv = (Astro.locals as any)?.runtime?.env ?? {};
+const env = { ...process.env, ...runtimeEnv };
+
+let posts: { slug: string; title: string; html: string }[] = [];
+let error: string | null = null;
+
+try {
+  const reader = getGitHubReader(env);
+  const slugs = await reader.collections.posts.list();
+  for (const slug of slugs.slice(0, 10)) {
+    const entry = await reader.collections.posts.read(slug);
+    if (!entry) continue;
+    const { node } = await entry.content();
+    const html = Markdoc.renderers.html(Markdoc.transform(node));
+    posts.push({ slug, title: entry.title, html });
+  }
+} catch (e) {
+  error = e instanceof Error ? e.message : String(e);
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>GitHub Posts (SSR)</title>
+  </head>
+  <body>
+    <h1>GitHub Posts (SSR, runtime GitHub reader)</h1>
+    {error && (
+      <p style="color: red"><strong>Reader error:</strong> <code>{error}</code></p>
+    )}
+    {!error && <p>Found {posts.length} post(s).</p>}
+    {posts.map((post) => (
+      <article>
+        <h2>{post.title}</h2>
+        <div set:html={post.html} />
+      </article>
+    ))}
+  </body>
+</html>
