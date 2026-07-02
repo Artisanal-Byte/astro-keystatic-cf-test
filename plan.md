@@ -196,37 +196,4 @@ D1_DATABASE_NAME=test-db
 5. **If Reader fails**: Implement chosen fallback in the monorepo template
 6. **Begin Phase 0** (rule system creation) with confirmed architecture
 
----
-
-## Test Build Findings
-
-Findings discovered while scaffolding the test project and getting `bun run build` to pass. These are build-time / wiring facts, not runtime test results (those go in "Test Results" after deployment).
-
-### Architecture
-
-- **Astro 5 has no `hybrid` output mode.** Use `output: 'static'` (the default) and opt individual routes into SSR with `export const prerender = false` at the top of the page. This gives the mixed SSG/SSR model the plan needs. Verified: `index.astro` and `local-posts.astro` prerender; `ssr.astro`, `github-posts.astro`, and `api/hello.ts` run on the Cloudflare worker.
-- **`@astrojs/cloudflare` adapter works in `static` output mode** — it emits a `_worker.js/` directory alongside the static assets. Build succeeded without falling back to a standalone Worker deploy. (Runtime verification on actual CF Pages still pending.)
-- **The adapter auto-adds a `SESSION` KV binding** for sessions. If you see "Invalid binding `SESSION`" at runtime, add an empty `SESSION` KV binding to `wrangler.jsonc`. Not yet added to our config because local dev didn't need it.
-
-### Keystatic API quirks
-
-- **Reader imports are split across two entrypoints.** `import { createReader, createGitHubReader } from '@keystatic/core/reader'` fails at build — the worker build of `@keystatic/core/reader` only exports `createReader`. Must import `createGitHubReader` from the subpath `@keystatic/core/reader/github`. (`src/lib/reader.ts` does this.)
-- **`entry.content` is an async function, not a plain object.** The `.d.ts` types say `ValueForReading` for the markdoc field is `{ node: MarkdocNode }`, but at runtime `reader.collections.posts.read(slug).content` is an async function that must be awaited to get `{ node }`. Correct rendering flow:
-  ```js
-  const { node } = await entry.content();
-  const html = Markdoc.renderers.html(Markdoc.transform(node));
-  ```
-  Note: the Markdoc function is `transform` (not `render`), then `renderers.html(...)`.
-- **`fields.slug` signature is nested.** It takes `{ name: { label, validation, ... }, slug?: { ... } }` — not a flat `{ label, validation }`. A flat call throws "Cannot read properties of undefined (reading 'validation')".
-- **Collection `path` must end with a glob segment.** `path: 'content/posts/'` throws "Collection path must end with /* or /** or include /*/ or /**/". Correct: `path: 'content/posts/*'`.
-- **Keystatic reader worker bundle imports Node built-ins** (`node:path`, `node:fs/promises`). Vite warns and externalizes them; they resolve at runtime only with the `nodejs_compat` compatibility flag set in `wrangler.jsonc`. Already set.
-
-### Env var access on Cloudflare
-
-- Server-side secrets are **not** available via `import.meta.env` on the Cloudflare runtime. They come from `Astro.locals.runtime.env`. `src/lib/reader.ts` accepts an explicit `env` param, and `github-posts.astro` merges `process.env` (local) with `Astro.locals.runtime.env` (CF) before calling the reader.
-- `platformProxy: { enabled: true }` in the adapter config is what wires `Astro.locals.runtime` in local `astro dev`.
-
-### Build artifacts
-
-- Build output: `dist/index.html`, `dist/local-posts/index.html` (prerendered), `dist/_worker.js/index.js` (SSR entry), `dist/_astro/client.*.js` (Vue hydration), `dist/_astro/keystatic-page.*.js` (~2.7 MB — the Keystatic admin UI bundle; expected, only loaded on `/keystatic`).
-- The `@keystar/ui` "use client" directive warnings during client build are harmless (Astro strips them).
+> Findings have moved to `findings.md`. That file is the living record of all build-time and runtime discoveries.
